@@ -32,20 +32,55 @@ export default function QueuePanel() {
     [removeItem]
   );
 
+  const addItem = trpc.queue.add.useMutation({
+    onSuccess: (item) => {
+      // Refresh queue logic or local state push
+      // TRPC will refresh via polling, but we can do a local dispatch if needed
+      // Currently, room Query refetches, but queue has its own query.
+      // Easiest is to force a re-fetch of queueQuery.
+      const ctx = trpc.useUtils();
+      ctx.queue.list.invalidate({ roomId: state.roomId });
+    }
+  });
+
   const handleAddUrl = useCallback(() => {
-    const url = prompt("Enter video URL:");
+    const url = prompt("Enter video URL (YouTube, Twitch, MP4):");
     if (!url || !state.roomId) return;
-    // Would add via tRPC
-  }, [state.roomId]);
+    
+    // Extract title if possible
+    let title = "Custom Video URL";
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      title = "YouTube Video";
+    }
+
+    addItem.mutate({
+      roomId: state.roomId,
+      title,
+      url,
+      source: "url",
+      addedBy: state.myName || "Guest"
+    });
+  }, [state.roomId, state.myName, addItem]);
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      if (!file || !state.roomId) return;
+      
       const url = URL.createObjectURL(file);
-      dispatch({ type: "SET_VIDEO", src: url, title: file.name });
+      addItem.mutate({
+        roomId: state.roomId,
+        title: file.name,
+        url,
+        source: "file",
+        addedBy: state.myName || "Guest"
+      });
+      // Optionally also auto-play it if the queue was empty
+      if (state.queue.length === 0) {
+        dispatch({ type: "SET_VIDEO", src: url, title: file.name });
+      }
     },
-    [dispatch]
+    [dispatch, state.roomId, state.myName, state.queue.length, addItem]
   );
 
   return (

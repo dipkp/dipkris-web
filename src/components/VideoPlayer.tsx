@@ -57,40 +57,88 @@ function srtToVtt(srt: string): string {
   return vtt;
 }
 
-function LiveChatStrip() {
+function DanmakuOverlay() {
   const { state } = useRoom();
-  const [latestMessage, setLatestMessage] = useState<any>(null);
+  const [danmakus, setDanmakus] = useState<{ id: string, content: string, top: string, color: string }[]>([]);
 
   useEffect(() => {
-    const chatMsgs = state.messages.filter((m) => m.type === "chat" || m.type === "reaction");
+    const chatMsgs = state.messages.filter((m) => m.type === "chat");
     if (chatMsgs.length > 0) {
       const msg = chatMsgs[chatMsgs.length - 1];
-      setLatestMessage(msg);
-      const timer = setTimeout(() => setLatestMessage(null), 4000);
-      return () => clearTimeout(timer);
+      if (Date.now() - new Date(msg.createdAt).getTime() < 5000) {
+        const id = Math.random().toString(36).substr(2, 9);
+        const top = Math.floor(5 + Math.random() * 80) + "%";
+        const colors = ["#ffffff", "#0A84FF", "#32D74B", "#FFD60A", "#BF5AF2", "#FF375F"];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        
+        setDanmakus(prev => [...prev, { id, content: msg.content, top, color }]);
+        
+        setTimeout(() => {
+          setDanmakus(prev => prev.filter(d => d.id !== id));
+        }, 8000);
+      }
     }
   }, [state.messages]);
 
   return (
-    <AnimatePresence>
-      {latestMessage && (
-        <motion.div
-          initial={{ opacity: 0, y: -20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -10, scale: 0.95 }}
-          className="absolute top-6 left-1/2 -translate-x-1/2 z-40 max-w-[80%] pointer-events-none"
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
+      {danmakus.map(d => (
+        <div
+          key={d.id}
+          className="absolute whitespace-nowrap text-2xl md:text-3xl font-bold"
+          style={{
+            top: d.top,
+            color: d.color,
+            textShadow: "2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 4px 8px rgba(0,0,0,0.8)",
+            animation: "danmakuSlide 7s linear forwards"
+          }}
         >
-          <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-3">
-            <span className="text-[var(--ios-blue)] font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
-              {latestMessage.senderName}
-            </span>
-            <span className="text-white text-sm font-medium line-clamp-2">
-              {latestMessage.content}
-            </span>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+          {d.content}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FloatingEmojisOverlay() {
+  const { state } = useRoom();
+  const [emojis, setEmojis] = useState<{ id: string, emoji: string, left: string, size: number }[]>([]);
+
+  useEffect(() => {
+    const reactions = state.messages.filter((m) => m.type === "reaction");
+    if (reactions.length > 0) {
+      const msg = reactions[reactions.length - 1];
+      if (Date.now() - new Date(msg.createdAt).getTime() < 5000) {
+        const id = Math.random().toString(36).substr(2, 9);
+        const left = Math.floor(10 + Math.random() * 80) + "%";
+        const size = 32 + Math.floor(Math.random() * 24);
+        
+        setEmojis(prev => [...prev, { id, emoji: msg.content, left, size }]);
+        
+        setTimeout(() => {
+          setEmojis(prev => prev.filter(e => e.id !== id));
+        }, 4000);
+      }
+    }
+  }, [state.messages]);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-30">
+      {emojis.map(e => (
+        <div
+          key={e.id}
+          className="absolute drop-shadow-2xl"
+          style={{
+            left: e.left,
+            bottom: "0",
+            fontSize: e.size + "px",
+            animation: "floatUp 3.5s ease-out forwards"
+          }}
+        >
+          {e.emoji}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -369,31 +417,28 @@ export default function VideoPlayer() {
 
 
   // ── Subtitle Upload ──
-  const handleSubtitleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSubtitleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      let content = event.target?.result as string;
-      if (file.name.toLowerCase().endsWith(".srt")) {
-        content = srtToVtt(content);
-      }
-      const blob = new Blob([content], { type: "text/vtt" });
-      const url = URL.createObjectURL(blob);
-      setSubtitleUrl(url);
-      setSubtitlesEnabled(true);
+    let blob: Blob = file;
+    if (file.name.toLowerCase().endsWith(".srt")) {
+      const text = await file.text();
+      const vttText = "WEBVTT\n\n" + text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
+      blob = new Blob([vttText], { type: "text/vtt" });
+    }
+
+    const url = URL.createObjectURL(blob);
+    setSubtitleUrl(url);
+    setSubtitlesEnabled(true);
       
-      // Force video to use track
-      if (videoRef.current) {
-        const tracks = videoRef.current.textTracks;
-        for (let i = 0; i < tracks.length; i++) {
-          tracks[i].mode = "showing";
-        }
+    if (videoRef.current) {
+      const tracks = videoRef.current.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        tracks[i].mode = "showing";
       }
-    };
-    reader.readAsText(file);
-  }, [videoRef]);
+    }
+  }, []);
 
   // Drag & drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -515,8 +560,13 @@ export default function VideoPlayer() {
         if (isPlaying) setShowControls(false);
       }}
     >
-      {/* Live Chat Strip overlay */}
-      {state.currentVideo && <LiveChatStrip />}
+      {/* Rave Features Overlays */}
+      {state.currentVideo && (
+        <>
+          <DanmakuOverlay />
+          <FloatingEmojisOverlay />
+        </>
+      )}
       {state.currentVideo ? (
         <>
           {/* YouTube: use iframe embed */}
@@ -620,13 +670,13 @@ export default function VideoPlayer() {
               }`}
             >
               <div className="flex items-center gap-2 px-4 py-2 bg-black/80 backdrop-blur-sm">
-                <button onClick={() => skip(-10)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition" title="-10s">
+                <button onClick={(e) => { e.stopPropagation(); skip(-10); }} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition" title="-10s">
                   <SkipBack className="w-4 h-4" />
                 </button>
-                <button onClick={togglePlay} className="p-1.5 text-white hover:bg-white/10 rounded transition" title="Play/Pause">
+                <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="p-1.5 text-white hover:bg-white/10 rounded transition" title="Play/Pause">
                   {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                 </button>
-                <button onClick={() => skip(10)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition" title="+10s">
+                <button onClick={(e) => { e.stopPropagation(); skip(10); }} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition" title="+10s">
                   <SkipForward className="w-4 h-4" />
                 </button>
 
@@ -635,7 +685,7 @@ export default function VideoPlayer() {
                 </span>
 
                 <div className="hidden sm:flex items-center gap-1 ml-2">
-                  <button onClick={toggleMute} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition">
+                  <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition">
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                   </button>
                   <input
@@ -683,7 +733,8 @@ export default function VideoPlayer() {
                   {/* CC Toggle */}
                   {(subtitleUrl || hasNativeSubtitles) && (
                     <button 
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         const nextState = !subtitlesEnabled;
                         setSubtitlesEnabled(nextState);
                         if (videoRef.current) {
