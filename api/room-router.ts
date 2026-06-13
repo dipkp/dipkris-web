@@ -7,7 +7,8 @@ import { eq, desc } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 
 function genCode(): string {
-  const nanoid = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 6);
+  // Unambiguous alphabet: Removed 0, O, 1, I, L, 5, S, 8, B to prevent typos
+  const nanoid = customAlphabet("234679ACDEFGHJKMNPQRTUVWXYZ", 6);
   return nanoid();
 }
 
