@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Socket } from "socket.io-client";
+import { useWebRTC } from "@/hooks/useWebRTC";
+import { MonitorUp, FileVideo } from "lucide-react";
 
 interface VideoPlayerProps {
   socket: Socket | null;
@@ -13,6 +15,10 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoUrl, setVideoUrl] = useState("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
   const [isSyncing, setIsSyncing] = useState(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  const { remoteStreams } = useWebRTC(socket, localStream);
 
   // Sync state FROM the server
   useEffect(() => {
@@ -98,19 +104,34 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
     };
   }, [socket]);
 
+  // Handle incoming remote WebRTC streams (for viewers)
+  useEffect(() => {
+    if (isHost || !videoRef.current) return;
+    
+    // Get the first remote stream (assuming it's from the host)
+    const stream = Array.from(remoteStreams.values())[0];
+    if (stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.src = "";
+    } else {
+      videoRef.current.srcObject = null;
+      videoRef.current.src = videoUrl;
+    }
+  }, [remoteStreams, isHost, videoUrl]);
+
   // Sync state TO the server (Local DOM events)
   const onPlay = () => {
-    if (isSyncing || !socket) return;
+    if (isSyncing || !socket || isStreaming) return;
     socket.emit('play_video', { roomId, time: videoRef.current?.currentTime || 0 });
   };
 
   const onPause = () => {
-    if (isSyncing || !socket) return;
+    if (isSyncing || !socket || isStreaming) return;
     socket.emit('pause_video', { roomId, time: videoRef.current?.currentTime || 0 });
   };
 
   const onSeeked = () => {
-    if (isSyncing || !socket) return;
+    if (isSyncing || !socket || isStreaming) return;
     socket.emit('seek_video', { roomId, time: videoRef.current?.currentTime || 0 });
   };
 
@@ -120,25 +141,93 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
     const newUrl = formData.get('videoUrl') as string;
     if (newUrl && socket && isHost) {
       setVideoUrl(newUrl);
+      setIsStreaming(false);
+      if (videoRef.current) videoRef.current.srcObject = null;
       socket.emit('change_video', { roomId, url: newUrl });
     }
+  };
+
+  const handleShareScreen = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.src = "";
+        videoRef.current.play();
+      }
+      setLocalStream(stream);
+      setIsStreaming(true);
+      socket?.emit('change_video', { roomId, url: "LIVE_STREAM" });
+
+      stream.getVideoTracks()[0].onended = () => {
+        setIsStreaming(false);
+        setLocalStream(null);
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+          videoRef.current.src = videoUrl;
+        }
+      };
+    } catch (err) {
+      console.error("Failed to share screen:", err);
+    }
+  };
+
+  const handleLocalFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !videoRef.current) return;
+
+    const url = URL.createObjectURL(file);
+    setVideoUrl(url);
+    videoRef.current.src = url;
+    videoRef.current.srcObject = null;
+    videoRef.current.play();
+
+    // @ts-ignore - captureStream exists on HTMLMediaElement but might not be in TS types
+    const stream = videoRef.current.captureStream ? videoRef.current.captureStream() : videoRef.current.mozCaptureStream();
+    setLocalStream(stream);
+    setIsStreaming(true);
+    socket?.emit('change_video', { roomId, url: "LIVE_STREAM" });
   };
 
   return (
     <div className="flex flex-col gap-4 w-full">
       {isHost && (
-        <form onSubmit={handleVideoUrlChange} className="flex gap-2">
-          <input
-            name="videoUrl"
-            type="url"
-            defaultValue={videoUrl}
-            placeholder="Enter MP4 video URL..."
-            className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg py-2 px-3 text-sm text-white"
-          />
-          <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            Load Video
-          </button>
-        </form>
+        <div className="flex flex-col gap-3">
+          <form onSubmit={handleVideoUrlChange} className="flex gap-2">
+            <input
+              name="videoUrl"
+              type="url"
+              defaultValue={videoUrl}
+              placeholder="Enter MP4 video URL..."
+              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              Load Video
+            </button>
+          </form>
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={handleShareScreen}
+              className="flex-1 bg-neutral-800 border border-neutral-700 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            >
+              <MonitorUp size={16} />
+              Share Screen
+            </button>
+            <div className="flex-1 relative">
+              <input 
+                type="file" 
+                accept="video/*"
+                onChange={handleLocalFile}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              />
+              <button className="w-full bg-neutral-800 border border-neutral-700 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+                <FileVideo size={16} />
+                Play Local File
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-neutral-800 shadow-xl">
         <video
@@ -149,7 +238,13 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
           onPlay={onPlay}
           onPause={onPause}
           onSeeked={onSeeked}
+          autoPlay={isStreaming || !isHost}
         />
+        {isStreaming && isHost && (
+          <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
+            LIVE
+          </div>
+        )}
       </div>
     </div>
   );
