@@ -153,7 +153,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.type === "chat") {
+        if (msg.type === "chat" || msg.type === "reaction") {
           // Add to local messages if we aren't using TRPC polling
           dispatch({ type: "ADD_MESSAGE", msg: msg.message });
         } else if (msg.type === "sync" && state.syncEnabled) {

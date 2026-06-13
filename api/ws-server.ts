@@ -46,7 +46,7 @@ function handleConnection(ws: WebSocket, req: any) {
           signal: msg.signal
         }, ws);
       }
-      else if (msg.type === "chat" || msg.type === "sync" || msg.type === "magnet") {
+      else if (["chat", "sync", "magnet", "reaction", "video_change"].includes(msg.type)) {
         // General broadcasting for chat and video sync
         broadcastToRoom(currentRoomId!, msg, ws);
       }
