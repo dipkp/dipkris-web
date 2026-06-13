@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Socket } from "socket.io-client";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { MonitorUp, FileVideo } from "lucide-react";
+import DanmakuOverlay from "./DanmakuOverlay";
 
 interface VideoPlayerProps {
   socket: Socket | null;
@@ -113,6 +114,7 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
     if (stream) {
       videoRef.current.srcObject = stream;
       videoRef.current.src = "";
+      videoRef.current.play().catch(e => console.error("Auto-play blocked:", e));
     } else {
       videoRef.current.srcObject = null;
       videoRef.current.src = videoUrl;
@@ -234,17 +236,19 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
           </div>
         </div>
       )}
-      <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-neutral-800 shadow-xl">
+      <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-neutral-800 shadow-xl group">
         <video
           ref={videoRef}
           src={videoUrl}
           controls
+          playsInline
           className="w-full h-full"
           onPlay={onPlay}
           onPause={onPause}
           onSeeked={onSeeked}
           autoPlay={isStreaming || !isHost}
         />
+        <DanmakuOverlay />
         {isStreaming && isHost && (
           <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
             LIVE

@@ -69,6 +69,15 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('change_video', { url });
   });
 
+  socket.on('send_message', ({ roomId, userId, text }) => {
+    io.to(roomId).emit('receive_message', {
+      id: Math.random().toString(36).substring(2, 9),
+      userId,
+      text,
+      timestamp: Date.now()
+    });
+  });
+
   // WebRTC Signaling (Basic forwarding)
   socket.on('webrtc_offer', ({ targetSocketId, offer }) => {
     io.to(targetSocketId).emit('webrtc_offer', { senderSocketId: socket.id, offer });

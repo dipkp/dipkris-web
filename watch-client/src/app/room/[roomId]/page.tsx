@@ -15,8 +15,11 @@ export default function RoomPage() {
   
   const {
     userId, setUserId, isHost, setIsHost,
-    users, addUser, removeUser, setRoomId
+    users, addUser, removeUser, setRoomId,
+    messages, addMessage
   } = useRoomStore();
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Generate a temporary user ID for this session if we don't have one
@@ -56,15 +59,30 @@ export default function RoomPage() {
       removeUser(socketId);
     });
 
+    socketInstance.on("receive_message", (message) => {
+      addMessage(message);
+    });
+
     return () => {
       socketInstance.disconnect();
     };
   }, [roomId]);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !socket) return;
+    socket.emit("send_message", { roomId, userId, text: chatInput });
+    setChatInput("");
   };
 
   return (
@@ -136,19 +154,30 @@ export default function RoomPage() {
           ))}
         </div>
         
-        {/* Placeholder for Chat */}
-        <div className="h-64 border-t border-neutral-800 p-4 flex flex-col">
-          <div className="flex-1 overflow-y-auto text-neutral-500 text-xs text-center flex items-center justify-center">
-            Chat & Danmaku ribbon coming soon...
+        <div className="h-64 md:h-auto md:flex-1 border-t md:border-t-0 border-neutral-800 p-4 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto flex flex-col gap-2 mb-4 scrollbar-thin scrollbar-thumb-neutral-700">
+            {messages.length === 0 && (
+              <div className="text-neutral-500 text-xs text-center flex items-center justify-center h-full">
+                No messages yet. Start chatting!
+              </div>
+            )}
+            {messages.map((msg) => (
+              <div key={msg.id} className="bg-neutral-800 rounded-lg p-2 text-sm">
+                <span className="font-semibold text-blue-400 mr-2">{msg.userId}</span>
+                <span className="text-neutral-200">{msg.text}</span>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
           </div>
-          <div className="mt-2 relative">
+          <form onSubmit={handleSendMessage} className="mt-auto relative">
             <input 
               type="text" 
-              disabled
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
               placeholder="Type a message..." 
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg py-2 px-3 text-sm opacity-50 cursor-not-allowed"
+              className="w-full bg-neutral-800 border border-neutral-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg py-2 px-3 text-sm transition-all"
             />
-          </div>
+          </form>
         </div>
       </div>
     </div>
