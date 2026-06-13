@@ -16,6 +16,12 @@ app.use("/api/trpc/*", async (c) => {
     req: c.req.raw,
     router: appRouter,
     createContext,
+    responseMeta({ ctx }) {
+      if (ctx?.resHeaders) {
+        return { headers: ctx.resHeaders };
+      }
+      return {};
+    },
   });
 });
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
