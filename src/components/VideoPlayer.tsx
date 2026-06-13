@@ -574,7 +574,7 @@ export default function VideoPlayer() {
                   {fmtTime(currentTime)} / {fmtTime(duration)}
                 </span>
 
-                <div className="flex items-center gap-1 ml-2">
+                <div className="hidden sm:flex items-center gap-1 ml-2">
                   <button onClick={toggleMute} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition">
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                   </button>
@@ -610,7 +610,7 @@ export default function VideoPlayer() {
                     <RotateCcw className="w-4 h-4" />
                   </button>
 
-                  <button onClick={handleScreenshot} className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded transition" title="Screenshot">
+                  <button onClick={handleScreenshot} className="hidden sm:block p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded transition" title="Screenshot">
                     <Camera className="w-4 h-4" />
                   </button>
 

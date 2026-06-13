@@ -111,62 +111,55 @@ export default function Room() {
   ];
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden relative z-10">
+    <div className="w-full h-full flex flex-col overflow-hidden relative z-10 bg-black">
       <TopBar />
 
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        <div className="flex-1 flex flex-col p-3 gap-3 min-w-0" data-video-container>
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 relative">
+        
+        {/* Video Player Area */}
+        <div 
+          className="w-full md:flex-1 md:w-auto aspect-video md:aspect-auto md:h-full flex flex-col p-0 md:p-3 min-w-0 flex-shrink-0 z-10" 
+          data-video-container
+        >
           <VideoPlayer />
         </div>
 
-        </div>
+        {/* Sidebar Area - Stacked on bottom for mobile, docked to right for desktop */}
+        <div
+          className={`flex-1 md:flex-none flex flex-col bg-[#050505] md:bg-[#050505]/95 md:backdrop-blur-md border-t md:border-t-0 md:border-l border-white/10 z-30 overflow-hidden transition-[width] duration-300 ease-out ${
+            state.isSidebarOpen ? "md:w-[350px]" : "md:w-0"
+          }`}
+        >
+          {/* Inner wrapper to prevent squishing during animation */}
+          <div className="w-full md:w-[350px] flex flex-col h-full">
+            <div className="flex border-b border-white/10 flex-shrink-0">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => dispatch({ type: "SET_ACTIVE_TAB", tab: tab.id })}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-3 md:py-2.5 text-[10px] font-bold tracking-wider transition relative ${
+                    state.activeTab === tab.id
+                      ? "text-[var(--ios-blue)]"
+                      : "text-white/40 hover:text-white/70"
+                  }`}
+                >
+                  {state.activeTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--ios-blue)]" />
+                  )}
+                  <tab.icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-      <motion.div
-        initial={false}
-        animate={{ x: state.isSidebarOpen ? 0 : "100%" }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        style={{ willChange: "transform" }}
-        className="absolute top-[52px] right-0 h-[calc(100%-52px)] w-[300px] flex flex-col bg-[#050505]/95 backdrop-blur-md border-l border-white/10 z-30 shadow-2xl"
-      >
-        <div className="flex border-b border-white/10 flex-shrink-0">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => dispatch({ type: "SET_ACTIVE_TAB", tab: tab.id })}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-bold tracking-wider transition relative ${
-                state.activeTab === tab.id
-                  ? "text-[var(--ios-blue)]"
-                  : "text-white/40 hover:text-white/70"
-              }`}
-            >
-              {state.activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--ios-blue)]" />
-              )}
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
-            </button>
-          ))}
+            <div className="flex-1 min-h-0 overflow-hidden bg-transparent">
+              {state.activeTab === "chat" && <ChatPanel />}
+              {state.activeTab === "queue" && <QueuePanel />}
+              {state.activeTab === "settings" && <SettingsPanel />}
+            </div>
+          </div>
         </div>
-
-        <div className="flex-1 min-h-0 overflow-hidden bg-transparent">
-          {state.activeTab === "chat" && <ChatPanel />}
-          {state.activeTab === "queue" && <QueuePanel />}
-          {state.activeTab === "settings" && <SettingsPanel />}
-        </div>
-      </motion.div>
-
-      {/* Overlay to close sidebar on mobile or desktop if wanted, optional */}
-      <AnimatePresence>
-        {state.isSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => dispatch({ type: "SET_SIDEBAR_OPEN", open: false })}
-            className="absolute inset-0 bg-black/20 z-20 md:hidden"
-          />
-        )}
-      </AnimatePresence>
+      </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>

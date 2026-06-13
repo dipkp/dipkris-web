@@ -4,8 +4,11 @@ import { getDb } from "./queries/connection";
 import { rooms, roomMembers, messages } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 
+import { customAlphabet } from "nanoid";
+
 function genCode(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+  const nanoid = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 6);
+  return nanoid();
 }
 
 export const roomRouter = createRouter({
