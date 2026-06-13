@@ -118,7 +118,7 @@ export default function Room() {
         
         {/* Video Player Area */}
         <div 
-          className="w-full md:flex-1 md:w-auto aspect-video md:aspect-auto md:h-full flex flex-col p-0 md:p-3 min-w-0 flex-shrink-0 z-10" 
+          className="w-full md:flex-1 md:w-auto aspect-video md:aspect-auto md:h-full flex flex-col p-2 md:p-3 min-w-0 flex-shrink-0 z-10" 
           data-video-container
         >
           <VideoPlayer />

@@ -6,17 +6,29 @@ import { Send } from "lucide-react";
 const QUICK_EMOJIS = ["😂", "🔥", "👀", "😱", "❤️", "👍", "😭", "🎉", "🤯", "🍿", "💀", "👏"];
 
 export default function ChatPanel() {
-  const { state, dispatch } = useRoom();
+  const { state, dispatch, wsRef } = useRoom();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const sendMessage = trpc.message.send.useMutation({
     onSuccess: (msg) => {
-      dispatch({
-        type: "ADD_MESSAGE",
-        msg: { ...msg, createdAt: new Date(msg.createdAt), isMe: true, senderAvatar: msg.senderAvatar || undefined, metadata: (msg.metadata as Record<string, any>) || undefined },
-      });
+      const formattedMsg = { 
+        ...msg, 
+        createdAt: new Date(msg.createdAt), 
+        isMe: true, 
+        senderAvatar: msg.senderAvatar || undefined, 
+        metadata: (msg.metadata as Record<string, any>) || undefined 
+      };
+      
+      dispatch({ type: "ADD_MESSAGE", msg: formattedMsg });
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: msg.type === "reaction" ? "reaction" : "chat",
+          message: { ...formattedMsg, isMe: false }
+        }));
+      }
     },
   });
 

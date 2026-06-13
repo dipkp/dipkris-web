@@ -112,6 +112,7 @@ export default function VideoPlayer() {
   const [dropActive, setDropActive] = useState(false);
   const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+  const [hasNativeSubtitles, setHasNativeSubtitles] = useState(false);
 
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -220,19 +221,37 @@ export default function VideoPlayer() {
 
   const togglePlay = useCallback(() => {
     if (!video) return;
+    let playing = false;
     if (video.paused) {
       video.play().catch(() => {});
+      playing = true;
     } else {
       video.pause();
+      playing = false;
     }
-  }, [video]);
+    
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "sync",
+        currentTime: video.currentTime,
+        isPlaying: playing
+      }));
+    }
+  }, [video, wsRef]);
 
   const skip = useCallback(
     (seconds: number) => {
       if (!video || !duration) return;
       video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seconds));
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: "sync",
+          currentTime: video.currentTime,
+          isPlaying: !video.paused
+        }));
+      }
     },
-    [video, duration]
+    [video, duration, wsRef]
   );
 
   const handleSeek = useCallback(
@@ -242,8 +261,16 @@ export default function VideoPlayer() {
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       video.currentTime = pct * duration;
       setCurrentTime(pct * duration);
+      
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: "sync",
+          currentTime: video.currentTime,
+          isPlaying: !video.paused
+        }));
+      }
     },
-    [video, duration]
+    [video, duration, wsRef]
   );
 
   const toggleMute = useCallback(() => {
@@ -312,15 +339,32 @@ export default function VideoPlayer() {
       // If it can't play, the error handler above shows a helpful message
       const url = URL.createObjectURL(file);
       dispatch({ type: "SET_VIDEO", src: url, title: file.name });
+      
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: "video_change",
+          src: url,
+          title: file.name
+        }));
+      }
     },
-    [dispatch]
+    [dispatch, wsRef]
   );
 
   const handleUrlLoad = useCallback(() => {
     const url = prompt("Enter video URL (YouTube, mp4, m3u8, or webm):");
     if (!url) return;
-    dispatch({ type: "SET_VIDEO", src: url, title: url.split("/").pop() || "Video" });
-  }, [dispatch]);
+    const title = url.split("/").pop() || "Video";
+    dispatch({ type: "SET_VIDEO", src: url, title });
+    
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "video_change",
+        src: url,
+        title
+      }));
+    }
+  }, [dispatch, wsRef]);
 
 
 
@@ -377,13 +421,21 @@ export default function VideoPlayer() {
   );
 
   // Show/hide controls
-  const handleMouseMove = useCallback(() => {
+  const showControlsTemporarily = useCallback(() => {
     setShowControls(true);
     clearTimeout(controlsTimerRef.current);
-    if (isPlaying) {
+    if (isPlaying || state.currentVideo) {
       controlsTimerRef.current = setTimeout(() => setShowControls(false), 3000);
     }
-  }, [isPlaying]);
+  }, [isPlaying, state.currentVideo]);
+
+  const handleMouseMove = useCallback(() => {
+    showControlsTemporarily();
+  }, [showControlsTemporarily]);
+  
+  const handleTouchStart = useCallback(() => {
+    showControlsTemporarily();
+  }, [showControlsTemporarily]);
 
   // Format time
   const fmtTime = (s: number) => {
@@ -457,6 +509,7 @@ export default function VideoPlayer() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onMouseMove={handleMouseMove}
+      onTouchStart={handleTouchStart}
       onMouseLeave={() => {
         handleDragLeave();
         if (isPlaying) setShowControls(false);
@@ -475,6 +528,13 @@ export default function VideoPlayer() {
               ref={videoRef}
               className="w-full h-full object-contain cursor-pointer"
               onClick={() => state.clickToPlay && togglePlay()}
+              onLoadedMetadata={() => {
+                if (videoRef.current && videoRef.current.textTracks.length > 0) {
+                  setHasNativeSubtitles(true);
+                  setSubtitlesEnabled(true);
+                  Array.from(videoRef.current.textTracks).forEach(t => t.mode = "showing");
+                }
+              }}
               playsInline
               crossOrigin="anonymous"
             >
@@ -621,9 +681,15 @@ export default function VideoPlayer() {
                   </label>
                   
                   {/* CC Toggle */}
-                  {subtitleUrl && (
+                  {(subtitleUrl || hasNativeSubtitles) && (
                     <button 
-                      onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}
+                      onClick={() => {
+                        const nextState = !subtitlesEnabled;
+                        setSubtitlesEnabled(nextState);
+                        if (videoRef.current) {
+                          Array.from(videoRef.current.textTracks).forEach(t => t.mode = nextState ? "showing" : "hidden");
+                        }
+                      }}
                       className={`p-1.5 rounded transition ${subtitlesEnabled ? "text-[var(--ios-blue)] drop-shadow-[0_0_8px_rgba(10,132,255,0.8)]" : "text-white/60 hover:text-white hover:bg-white/10"}`}
                       title="Toggle Subtitles"
                     >
