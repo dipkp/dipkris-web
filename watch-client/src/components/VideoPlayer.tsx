@@ -172,7 +172,7 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
     }
   };
 
-  const handleLocalFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLocalFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !videoRef.current) return;
 
@@ -180,13 +180,18 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
     setVideoUrl(url);
     videoRef.current.src = url;
     videoRef.current.srcObject = null;
-    videoRef.current.play();
-
-    // @ts-ignore - captureStream exists on HTMLMediaElement but might not be in TS types
-    const stream = videoRef.current.captureStream ? videoRef.current.captureStream() : videoRef.current.mozCaptureStream();
-    setLocalStream(stream);
-    setIsStreaming(true);
-    socket?.emit('change_video', { roomId, url: "LIVE_STREAM" });
+    
+    try {
+      await videoRef.current.play();
+      // @ts-ignore - captureStream exists on HTMLMediaElement but might not be in TS types
+      const stream = videoRef.current.captureStream ? videoRef.current.captureStream() : videoRef.current.mozCaptureStream();
+      setLocalStream(stream);
+      setIsStreaming(true);
+      socket?.emit('change_video', { roomId, url: "LIVE_STREAM" });
+    } catch (err) {
+      console.error("Error playing local file:", err);
+      alert("Please ensure you clicked the screen first to allow autoplay, then try again.");
+    }
   };
 
   return (
