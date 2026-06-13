@@ -71,8 +71,8 @@ export default function RoomPage() {
     <div className="min-h-screen bg-neutral-950 text-white flex flex-col md:flex-row">
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col p-4 gap-4">
-        {/* Header */}
-        <header className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex items-center justify-between">
+        {/* Header (Below video on mobile, above on desktop) */}
+        <header className="order-2 md:order-1 bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
               Room: <span className="font-mono text-blue-400">{roomId}</span>
@@ -88,8 +88,8 @@ export default function RoomPage() {
           </button>
         </header>
 
-        {/* Video Player Area */}
-        <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full">
+        {/* Video Player Area (Top on mobile, below header on desktop) */}
+        <div className="order-1 md:order-2 flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full">
           <VideoPlayer socket={socket} roomId={roomId} isHost={isHost} />
           
           <div className="mt-4 text-neutral-400 text-sm">
