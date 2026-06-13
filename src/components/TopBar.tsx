@@ -37,8 +37,9 @@ export default function TopBar() {
   }, [dispatch]);
 
   return (
-    <div className="h-[52px] glass-panel flex items-center gap-3 px-4 flex-shrink-0 z-50">
+    <div className="h-[52px] glass-panel flex items-center justify-between px-2 sm:px-4 flex-shrink-0 z-50 w-full">
       {/* Left: Back + Room info */}
+      <div className="flex items-center gap-1 sm:gap-3">
       <button
         onClick={handleLeave}
         className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition"
@@ -56,16 +57,17 @@ export default function TopBar() {
         </span>
         <button
           onClick={handleCopyCode}
-          className="flex items-center gap-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-white/50 hover:border-[var(--ios-blue)] hover:text-[var(--ios-blue)] transition"
+          className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-white/50 hover:border-[var(--ios-blue)] hover:text-[var(--ios-blue)] transition"
           title="Copy room code"
         >
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           {state.roomCode}
         </button>
       </div>
+      </div>
 
       {/* Center: Sync status */}
-      <div className="mx-auto flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+      <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
         <Radio className={`w-3 h-3 ${state.syncEnabled ? "text-[#34C759]" : "text-[#FF3B30]"}`} />
         <span className="text-[11px] text-white/50">
           {state.syncEnabled ? "Synced" : "Sync Off"}

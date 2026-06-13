@@ -11,8 +11,8 @@ if (globalForWss.wss) {
   globalForWss.wss.close();
 }
 
-// Room state: roomId -> Set<WebSocket>
-const rooms = new Map<string, Set<WebSocket>>();
+// Room state: roomId -> Map<WebSocket, string>
+const rooms = new Map<string, Map<WebSocket, string>>();
 
 function handleConnection(ws: WebSocket, req: any) {
   let currentRoomId: string | null = null;
@@ -27,15 +27,23 @@ function handleConnection(ws: WebSocket, req: any) {
         currentUserId = msg.userId;
         
         if (!rooms.has(currentRoomId!)) {
-          rooms.set(currentRoomId!, new Set());
+          rooms.set(currentRoomId!, new Map());
         }
-        rooms.get(currentRoomId!)!.add(ws);
+        const roomMap = rooms.get(currentRoomId!)!;
+        roomMap.set(ws, currentUserId!);
         
         // Notify others
         broadcastToRoom(currentRoomId!, {
           type: "peer_joined",
           peerId: currentUserId
         }, ws);
+
+        // Send existing peers to the new user
+        const existingPeers = Array.from(roomMap.values()).filter(id => id !== currentUserId);
+        ws.send(JSON.stringify({
+          type: "peer_list",
+          peers: existingPeers
+        }));
       } 
       else if (msg.type === "signal") {
         // Forward WebRTC signaling data
@@ -73,7 +81,7 @@ function handleConnection(ws: WebSocket, req: any) {
     const room = rooms.get(roomId);
     if (!room) return;
     const dataStr = JSON.stringify(data);
-    for (const client of room) {
+    for (const client of room.keys()) {
       if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
         // If msg has a target, only send to that target
         if (data.target && client !== data.target_ws) {

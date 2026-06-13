@@ -156,6 +156,14 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         if (msg.type === "chat" || msg.type === "reaction") {
           // Add to local messages if we aren't using TRPC polling
           dispatch({ type: "ADD_MESSAGE", msg: msg.message });
+        } else if (msg.type === "peer_joined") {
+          dispatch({ type: "ADD_USER", user: { id: msg.peerId, name: msg.peerId, isOnline: true } });
+        } else if (msg.type === "peer_left") {
+          dispatch({ type: "REMOVE_USER", id: msg.peerId });
+        } else if (msg.type === "peer_list") {
+          msg.peers.forEach((peerId: string) => {
+            dispatch({ type: "ADD_USER", user: { id: peerId, name: peerId, isOnline: true } });
+          });
         } else if (msg.type === "sync" && state.syncEnabled) {
           // Handle video sync
           if (videoRef.current) {

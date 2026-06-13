@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { messages } from "@db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 
 export const messageRouter = createRouter({
   list: publicQuery
@@ -41,7 +41,7 @@ export const messageRouter = createRouter({
         .select()
         .from(messages)
         .where(eq(messages.roomId, input.roomId))
-        .orderBy(asc(messages.createdAt))
+        .orderBy(desc(messages.id))
         .limit(1);
 
       return msg;
