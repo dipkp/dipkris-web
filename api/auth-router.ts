@@ -12,9 +12,11 @@ export const authRouter = createRouter({
   guestLogin: publicQuery.mutation(async ({ ctx }) => {
     if (ctx.user) return { success: true };
 
+    console.log("Generating guest user...");
     const unionId = nanoid();
     const name = `Guest-${Math.floor(Math.random() * 10000)}`;
 
+    console.log("Upserting user to DB...");
     await upsertUser({
       unionId,
       name,
@@ -22,6 +24,7 @@ export const authRouter = createRouter({
       role: "user",
     });
 
+    console.log("Signing JWT...");
     const secret = new TextEncoder().encode(env.appSecret);
     const token = await new SignJWT({ sub: unionId })
       .setProtectedHeader({ alg: "HS256" })
@@ -29,6 +32,7 @@ export const authRouter = createRouter({
       .setExpirationTime("1y")
       .sign(secret);
 
+    console.log("Setting cookies...");
     const opts = getSessionCookieOptions(ctx.req.headers);
     ctx.resHeaders.append(
       "set-cookie",
@@ -41,6 +45,7 @@ export const authRouter = createRouter({
       }),
     );
 
+    console.log("Guest login complete.");
     return { success: true };
   }),
   logout: authedQuery.mutation(async ({ ctx }) => {
