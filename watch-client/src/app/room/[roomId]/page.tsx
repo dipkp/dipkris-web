@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { useRoomStore } from "@/store/useRoomStore";
