@@ -1,79 +1,138 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
-
 const server = http.createServer(app);
+
+// Dynamic CORS based on Environment Variable (for Vercel & Render)
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+app.use(cors({
+  origin: frontendUrl,
+  methods: ['GET', 'POST']
+}));
+
 const io = new Server(server, {
   cors: {
-    origin: '*', // For development, allow all origins
+    origin: frontendUrl,
     methods: ['GET', 'POST']
   }
 });
 
-// Simple in-memory storage for rooms
-const rooms = {};
+// In-memory state
+// Map<roomId, { videoUrl, isPlaying, timestamp, hostId, users: Set<socketId> }>
+const rooms = new Map();
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log(`User connected: ${socket.id}`);
 
-  socket.on('join_room', ({ roomId }) => {
+  // JOIN ROOM
+  socket.on('join-room', (roomId) => {
     socket.join(roomId);
-    console.log(`User ${socket.id} joined room ${roomId}`);
 
-    if (!rooms[roomId]) {
-      // First person to join becomes the host
-      rooms[roomId] = { hostId: socket.id };
-      console.log(`User ${socket.id} is the host of room ${roomId}`);
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, {
+        videoUrl: '',
+        isPlaying: false,
+        timestamp: 0,
+        hostId: socket.id,
+        users: new Set([socket.id])
+      });
     } else {
-      // Not the first person, ask the host for the current state
-      io.to(rooms[roomId].hostId).emit('request_sync', { requestingUserId: socket.id });
+      rooms.get(roomId).users.add(socket.id);
     }
 
-    // Broadcast to others in the room
-    socket.to(roomId).emit('user_joined', { userId: socket.id });
+    const room = rooms.get(roomId);
+    
+    // Send current state to the joining user, including list of users already in the room
+    socket.emit('room-state', {
+      videoUrl: room.videoUrl,
+      isPlaying: room.isPlaying,
+      timestamp: room.timestamp,
+      hostId: room.hostId,
+      users: Array.from(room.users)
+    });
+
+    // Notify others that a new user joined (for WebRTC Mesh)
+    socket.to(roomId).emit('user-joined', socket.id);
   });
 
-  socket.on('sync_state', ({ roomId, time, playing, requestingUserId }) => {
-    // The host sends the current state, and we forward it to the specific user who requested it
-    io.to(requestingUserId).emit('sync_state', { time, playing });
+  // SYNCHRONIZATION ENGINE
+  socket.on('sync-state', ({ roomId, videoUrl, isPlaying, timestamp }) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      // Security: Only allow the Host to sync state
+      if (room.hostId === socket.id) {
+        room.videoUrl = videoUrl !== undefined ? videoUrl : room.videoUrl;
+        room.isPlaying = isPlaying !== undefined ? isPlaying : room.isPlaying;
+        room.timestamp = timestamp !== undefined ? timestamp : room.timestamp;
+
+        // Broadcast SYNC_STATE to ALL clients in the room, including the host
+        io.to(roomId).emit('SYNC_STATE', {
+          videoUrl: room.videoUrl,
+          isPlaying: room.isPlaying,
+          timestamp: room.timestamp,
+          hostId: room.hostId
+        });
+      }
+    }
   });
 
-  socket.on('play', ({ roomId, time }) => {
-    socket.to(roomId).emit('play', { time });
+  // WEBRTC SIGNALING (Mesh Network)
+  socket.on('webrtc-offer', ({ targetId, callerId, sdp }) => {
+    io.to(targetId).emit('webrtc-offer', { callerId, sdp });
   });
 
-  socket.on('pause', ({ roomId, time }) => {
-    socket.to(roomId).emit('pause', { time });
+  socket.on('webrtc-answer', ({ targetId, callerId, sdp }) => {
+    io.to(targetId).emit('webrtc-answer', { callerId, sdp });
   });
 
-  socket.on('seek', ({ roomId, time }) => {
-    socket.to(roomId).emit('seek', { time });
+  socket.on('webrtc-ice-candidate', ({ targetId, callerId, candidate }) => {
+    io.to(targetId).emit('webrtc-ice-candidate', { callerId, candidate });
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-    // Simple cleanup: if the host disconnects, reassign host (simplified for now)
-    for (const roomId in rooms) {
-      if (rooms[roomId].hostId === socket.id) {
-        // Need to reassign host to someone else in the room
-        const clients = io.sockets.adapter.rooms.get(roomId);
-        if (clients && clients.size > 0) {
-          const nextHost = Array.from(clients)[0];
-          rooms[roomId].hostId = nextHost;
-          console.log(`User ${nextHost} is now the host of room ${roomId}`);
-        } else {
-          delete rooms[roomId]; // Room empty
+  // DANMAKU CHAT
+  socket.on('chat-message', ({ roomId, text }) => {
+    // Broadcast to room
+    io.to(roomId).emit('chat-message', {
+      senderId: socket.id,
+      text
+    });
+  });
+
+  // DISCONNECT & CLEANUP
+  socket.on('disconnecting', () => {
+    for (const roomId of socket.rooms) {
+      if (roomId !== socket.id) {
+        const room = rooms.get(roomId);
+        if (room) {
+          room.users.delete(socket.id);
+          
+          if (room.users.size === 0) {
+            rooms.delete(roomId); // Clean up memory if empty
+          } else {
+            // If the host leaves, assign a new host
+            if (room.hostId === socket.id) {
+              const remainingUsers = Array.from(room.users);
+              room.hostId = remainingUsers[0]; // Elect next available user
+              io.to(roomId).emit('new-host', room.hostId);
+            }
+            socket.to(roomId).emit('user-left', socket.id);
+          }
         }
       }
     }
   });
+
+  socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.id}`);
+  });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Signaling Server running on port ${PORT}`);
 });
