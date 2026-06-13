@@ -18,7 +18,6 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
   const [isSyncing, setIsSyncing] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
 
   const { remoteStreams } = useWebRTC(socket, localStream);
 
@@ -109,7 +108,7 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
   // Handle incoming remote WebRTC streams (for viewers)
   useEffect(() => {
     if (isHost || !videoRef.current) return;
-    
+
     // Get the first remote stream (assuming it's from the host)
     const stream = Array.from(remoteStreams.values())[0];
     if (stream) {
@@ -179,39 +178,21 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
     const file = e.target.files?.[0];
     if (!file || !videoRef.current || !socket) return;
 
-    setIsUploading(true);
+    const url = URL.createObjectURL(file);
+    setVideoUrl(url);
+    videoRef.current.src = url;
+    videoRef.current.srcObject = null;
     
-    // Determine the backend upload URL dynamically based on the socket URL
-    const backendUrl = socket.io.uri.replace(/\/$/, "");
-    
-    const formData = new FormData();
-    formData.append("video", file);
-
     try {
-      const response = await fetch(`${backendUrl}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const data = await response.json();
-      const publicUrl = data.url;
-
-      setVideoUrl(publicUrl);
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      setIsStreaming(false); // It's no longer a live stream, it's a synced video URL
-      socket.emit('change_video', { roomId, url: publicUrl });
-
+      await videoRef.current.play();
+      // @ts-ignore - captureStream exists on HTMLMediaElement but might not be in TS types
+      const stream = videoRef.current.captureStream ? videoRef.current.captureStream() : videoRef.current.mozCaptureStream();
+      setLocalStream(stream);
+      setIsStreaming(true);
+      socket.emit('change_video', { roomId, url: "LIVE_STREAM" });
     } catch (err) {
-      console.error("Error uploading local file:", err);
-      alert("Failed to upload the local file. Please try again or use a smaller file.");
-    } finally {
-      setIsUploading(false);
+      console.error("Error playing local file:", err);
+      alert("Please ensure you clicked the screen first to allow autoplay, then try again.");
     }
   };
 
@@ -231,9 +212,9 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
               Load Video
             </button>
           </form>
-          
+
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={handleShareScreen}
               className="flex-1 bg-neutral-800 border border-neutral-700 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
             >
@@ -241,24 +222,15 @@ export default function VideoPlayer({ socket, roomId, isHost }: VideoPlayerProps
               Share Screen
             </button>
             <div className="flex-1 relative">
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept="video/*"
                 onChange={handleLocalFile}
                 className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
               />
-              <button 
-                disabled={isUploading}
-                className={`w-full ${isUploading ? 'bg-neutral-600 cursor-not-allowed' : 'bg-neutral-800 hover:bg-neutral-700'} border border-neutral-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors`}
-              >
-                {isUploading ? (
-                  <span className="animate-pulse">Uploading...</span>
-                ) : (
-                  <>
-                    <FileVideo size={16} />
-                    Play Local File
-                  </>
-                )}
+              <button className="w-full bg-neutral-800 border border-neutral-700 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+                <FileVideo size={16} />
+                Play Local File
               </button>
             </div>
           </div>
