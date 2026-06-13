@@ -1,0 +1,25 @@
+services:
+  # The Node.js Web Socket Server
+  - type: web
+    name: watch-server
+    env: node
+    rootDir: watch-server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 4000
+
+  # The Next.js Frontend Client
+  - type: web
+    name: watch-client
+    env: node
+    rootDir: watch-client
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_SOCKET_HOST
+        fromService:
+          type: web
+          name: watch-server
+          property: host
