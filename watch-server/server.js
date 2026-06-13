@@ -64,6 +64,11 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('seek_video', { time });
   });
 
+  socket.on('change_video', ({ roomId, url }) => {
+    // Optionally we can store this in the room state if we expand the state object
+    socket.to(roomId).emit('change_video', { url });
+  });
+
   // WebRTC Signaling (Basic forwarding)
   socket.on('webrtc_offer', ({ targetSocketId, offer }) => {
     io.to(targetSocketId).emit('webrtc_offer', { senderSocketId: socket.id, offer });

@@ -24,9 +24,14 @@ export default function RoomPage() {
     if (!userId) setUserId(currentUserId);
     setRoomId(roomId);
 
-    // Connect to the socket server (use env var in production, default to localhost)
+    // Connect to the socket server
     const socketHost = process.env.NEXT_PUBLIC_SOCKET_HOST;
-    const socketUrl = socketHost ? `https://${socketHost}` : "http://localhost:4000";
+    let socketUrl = "http://localhost:4000";
+    if (socketHost) {
+      socketUrl = `https://${socketHost}`;
+    } else if (typeof window !== "undefined") {
+      socketUrl = `http://${window.location.hostname}:4000`;
+    }
     const socketInstance = io(socketUrl);
     setSocket(socketInstance);
 
