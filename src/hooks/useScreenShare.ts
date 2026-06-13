@@ -71,13 +71,14 @@ export function useScreenShare() {
     return () => ws.removeEventListener("message", handleMessage);
   }, [state.myId, wsRef, localStream]);
 
-  const createPeer = (peerId: string) => {
+  const createPeer = (peerId: string, streamOverride?: MediaStream) => {
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
     });
 
-    if (localStream) {
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    const streamToUse = streamOverride || localStream;
+    if (streamToUse) {
+      streamToUse.getTracks().forEach(track => pc.addTrack(track, streamToUse));
     }
 
     pc.onicecandidate = (event) => {
@@ -105,11 +106,21 @@ export function useScreenShare() {
       // Broadcast to room that we are sharing so they can prepare
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: "share_started", from: state.myId }));
+        
+        state.users.forEach(async (user) => {
+          if (user.id !== state.myId) {
+            let pc = peersRef.current[user.id];
+            if (!pc) {
+              pc = createPeer(user.id, stream);
+            } else {
+              stream.getTracks().forEach(track => pc!.addTrack(track, stream));
+            }
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            wsRef.current?.send(JSON.stringify({ type: "signal", target: user.id, from: state.myId, signal: { type: "offer", sdp: pc.localDescription } }));
+          }
+        });
       }
-      
-      // We must create an offer to all existing peers (not implemented here perfectly since we don't track all peers yet,
-      // but if they send a ping or we know they are there, we could. For now, let's just wait for them to request or reload).
-      // A more robust implementation would fetch the peer list and loop through them.
     } catch (err) {
       console.error(err);
     }
