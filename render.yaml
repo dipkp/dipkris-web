@@ -3,6 +3,7 @@ services:
   - type: web
     name: watch-server
     env: node
+    plan: free
     rootDir: watch-server
     buildCommand: npm install
     startCommand: node server.js
@@ -14,6 +15,7 @@ services:
   - type: web
     name: watch-client
     env: node
+    plan: free
     rootDir: watch-client
     buildCommand: npm install && npm run build
     startCommand: npm start
