@@ -41,7 +41,7 @@ export function useWebRTC(socket: Socket | null, localStream: MediaStream | null
           socket.emit('webrtc-offer', { targetId, callerId: socket.id, sdp: signalData });
         } else if (signalData.type === 'answer') {
           socket.emit('webrtc-answer', { targetId, callerId: socket.id, sdp: signalData });
-        } else if (signalData.candidate) {
+        } else if ((signalData as any).candidate) {
           socket.emit('webrtc-ice-candidate', { targetId, callerId: socket.id, candidate: signalData });
         } else {
            if (initiator) {
