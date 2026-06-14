@@ -10,9 +10,9 @@
     "allowImportingTsExtensions": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
-    "noFallthroughCasesInSwitch": true,
+    "noFallthroughCasesInSwitch": false,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],

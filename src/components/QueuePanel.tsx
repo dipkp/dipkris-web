@@ -39,7 +39,9 @@ export default function QueuePanel() {
       // Currently, room Query refetches, but queue has its own query.
       // Easiest is to force a re-fetch of queueQuery.
       const ctx = trpc.useUtils();
-      ctx.queue.list.invalidate({ roomId: state.roomId });
+      if (state.roomId) {
+        ctx.queue.list.invalidate({ roomId: state.roomId });
+      }
     }
   });
 

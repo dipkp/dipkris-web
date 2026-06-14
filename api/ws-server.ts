@@ -18,7 +18,7 @@ function handleConnection(ws: WebSocket, req: any) {
   let currentRoomId: string | null = null;
   let currentUserId: string | null = null;
 
-  ws.on("message", (messageData) => {
+  ws.on("message", (messageData: any) => {
     try {
       const msg = JSON.parse(messageData.toString());
 
