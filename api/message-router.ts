@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
-import { messages } from "@db/schema";
+import { createRouter, publicQuery } from "./middleware.js";
+import { getDb } from "./queries/connection.js";
+import { messages } from "../db/schema.js";
 import { eq, asc, desc } from "drizzle-orm";
 
 export const messageRouter = createRouter({

@@ -1,10 +1,10 @@
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-import type { User } from "@db/schema";
+import type { User } from "../db/schema.js";
 import * as cookie from "cookie";
-import { Session } from "@contracts/constants";
-import { findUserByUnionId } from "./queries/users";
+import { Session } from "../contracts/constants.js";
+import { findUserByUnionId } from "./queries/users.js";
 import { jwtVerify } from "jose";
-import { env } from "./lib/env";
+import { env } from "./lib/env.js";
 
 export type TrpcContext = {
   req: Request;

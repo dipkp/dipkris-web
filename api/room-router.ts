@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
-import { rooms, roomMembers, messages } from "@db/schema";
+import { createRouter, publicQuery } from "./middleware.js";
+import { getDb } from "./queries/connection.js";
+import { rooms, roomMembers, messages } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
 
 import { customAlphabet } from "nanoid";

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
-import { videoQueue } from "@db/schema";
+import { createRouter, publicQuery } from "./middleware.js";
+import { getDb } from "./queries/connection.js";
+import { videoQueue } from "../db/schema.js";
 import { eq, asc } from "drizzle-orm";
 
 export const queueRouter = createRouter({

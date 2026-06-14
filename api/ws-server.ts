@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { env } from "./lib/env";
+import { env } from "./lib/env.js";
 
 const WS_PORT = 3002;
 

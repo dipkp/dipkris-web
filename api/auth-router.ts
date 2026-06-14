@@ -1,10 +1,10 @@
 import * as cookie from "cookie";
-import { Session } from "@contracts/constants";
-import { getSessionCookieOptions } from "./lib/cookies";
-import { createRouter, authedQuery, publicQuery } from "./middleware";
+import { Session } from "../contracts/constants.js";
+import { getSessionCookieOptions } from "./lib/cookies.js";
+import { createRouter, authedQuery, publicQuery } from "./middleware.js";
 import { SignJWT } from "jose";
-import { env } from "./lib/env";
-import { upsertUser } from "./queries/users";
+import { env } from "./lib/env.js";
+import { upsertUser } from "./queries/users.js";
 import { nanoid } from "nanoid";
 
 export const authRouter = createRouter({
